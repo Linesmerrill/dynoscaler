@@ -23,7 +23,7 @@ sched = BlockingScheduler()
 @sched.scheduled_job('interval', minutes=1)
 def job():
     print('Scaling ...')
-    print(scale(2))
+    # print(scale(2))
 
 
 def scale(size):
