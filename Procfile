@@ -1,2 +1,2 @@
-web: gunicorn app
+web: gunicorn -
 clock: python autoscale.py
