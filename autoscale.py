@@ -19,13 +19,6 @@ HEADERS = {
 
 sched = BlockingScheduler()
 
-
-@sched.scheduled_job('interval', minutes=1)
-def job():
-    print('Scaling ...')
-    # print(scale(2))
-
-
 def scale(size):
     payload = {'quantity': size}
     json_payload = json.dumps(payload)
