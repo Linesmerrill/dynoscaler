@@ -64,10 +64,12 @@ def fail_safe():
         if current_number_of_dynos < 2:
             print('FAIL SAFE: Bad status code: Scaling out ...')
             print(scale(2))
-    if r.elapsed.microseconds / 1000 > 5000:
+    elif r.elapsed.microseconds / 1000 > 5000:
         if current_number_of_dynos < 2:
             print('FAIL SAFE: Response greater than 5 seconds: Scaling out ...')
             print(scale(2))
+    else :
+        print("Status code: " + r.status_code)
 
-print("started running...")
+print("started running ...")
 sched.start()
