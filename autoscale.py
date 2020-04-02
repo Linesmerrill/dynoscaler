@@ -58,7 +58,7 @@ def get_current_dyno_quantity():
 @sched.scheduled_job('interval', minutes=3)
 def fail_safe():
     print("pinging ...")
-    r = requests.get('https://APPNAME.herokuapp.com/')
+    r = requests.get('https://www.linespolice-cad.com/')
     current_number_of_dynos = get_current_dyno_quantity()
     if r.status_code < 200 or r.status_code > 299:
         if current_number_of_dynos < 3:
