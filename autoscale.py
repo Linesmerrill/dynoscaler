@@ -69,7 +69,7 @@ def fail_safe():
             print('FAIL SAFE: Response greater than 5 seconds: Scaling out ...')
             print(scale(2))
     else :
-        print("Status code: " + r.status_code)
+        print("%s%s" % ("Status code: ", r.status_code))
 
 print("started running ...")
 sched.start()
