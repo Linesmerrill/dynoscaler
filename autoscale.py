@@ -4,7 +4,7 @@ import json
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-from config import APP, KEY, PROCESS
+from config import APP, APP_URL, KEY, PROCESS
 
 # Generate Base64 encoded API Key
 message = ":" + KEY
@@ -58,7 +58,7 @@ def get_current_dyno_quantity():
 @sched.scheduled_job('interval', minutes=3)
 def fail_safe():
     print("pinging ...")
-    r = requests.get('https://www.linespolice-cad.com/')
+    r = requests.get(APP_URL)
     current_number_of_dynos = get_current_dyno_quantity()
     if r.status_code < 200 or r.status_code > 299:
         if current_number_of_dynos < 2:
