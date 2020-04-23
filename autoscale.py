@@ -6,6 +6,7 @@ import http.client
 import socket
 import concurrent.futures
 import urllib.request
+import time
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
@@ -71,8 +72,9 @@ def get_p99_response():
     print("checking p99 response")
     current_number_of_dynos = get_current_dyno_quantity()
     responseTimes = []  # in ms
-    for _ in range(100):
-        r = requests.get(APP_URL)
+    for i in range(100):
+        ts = time.time()
+        r = requests.get("""{}?{}{}""".format(APP_URL, ts, i))
         responseTimes.append(int(r.elapsed.microseconds / 1000))
     responseTimes.sort()
     p99 = np.percentile(responseTimes, 99)
@@ -99,4 +101,5 @@ ______                   _____           _
         __/ |                                        
        |___/                                         
 """)
+print("application started...")
 sched.start()
