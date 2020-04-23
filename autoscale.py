@@ -1,6 +1,11 @@
+import numpy as np
 import requests
 import base64
 import json
+import http.client
+import socket
+import concurrent.futures
+import urllib.request
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
@@ -19,6 +24,10 @@ HEADERS = {
 
 sched = BlockingScheduler()
 
+
+def printf(format, *values):
+    print(format % values)
+
 def scale(size):
     payload = {'quantity': size}
     json_payload = json.dumps(payload)
@@ -34,16 +43,17 @@ def scale(size):
         return "Failure"
 
 # 10:00 PHX time is 17:00 UTC
-@sched.scheduled_job('cron', hour=17)
-def scale_out_to_two():
-    print('Scaling out ...')
-    print(scale(2))
+# @sched.scheduled_job('cron', hour=17)
+# def scale_out_to_two():
+#     print('Scaling out ...')
+#     print(scale(2))
 
 # 00:00 PHX time is 07:00 UTC
-@sched.scheduled_job('cron', hour=7)
-def scale_in_to_one():
-    print('Scaling in ...')
-    print(scale(1))
+# @sched.scheduled_job('cron', hour=7)
+# def scale_in_to_one():
+#     print('Scaling in ...')
+#     print(scale(1))
+
 
 def get_current_dyno_quantity():
     url = "https://api.heroku.com/apps/" + APP + "/formation"
@@ -55,21 +65,38 @@ def get_current_dyno_quantity():
     except:
         return None
 
-@sched.scheduled_job('interval', minutes=3)
-def fail_safe():
-    print("pinging ...")
-    r = requests.get(APP_URL)
-    current_number_of_dynos = get_current_dyno_quantity()
-    if r.status_code < 200 or r.status_code > 299:
-        if current_number_of_dynos < 2:
-            print('FAIL SAFE: Bad status code: Scaling out ...')
-            print(scale(2))
-    elif r.elapsed.microseconds / 1000 > 5000:
-        if current_number_of_dynos < 2:
-            print('FAIL SAFE: Response greater than 5 seconds: Scaling out ...')
-            print(scale(2))
-    else :
-        print("%s%s" % ("Status code: ", r.status_code))
 
-print("started running ...")
+@sched.scheduled_job('interval', minutes=2)
+def get_p99_response():
+    print("checking p99 response")
+    current_number_of_dynos = get_current_dyno_quantity()
+    responseTimes = []  # in ms
+    for _ in range(100):
+        r = requests.get(APP_URL)
+        responseTimes.append(int(r.elapsed.microseconds / 1000))
+    responseTimes.sort()
+    p99 = np.percentile(responseTimes, 99)
+    if p99 < 1000 and current_number_of_dynos == 2:
+        printf("scaling to a single dyno, p99: %s. Scale Status: %s", p99, scale(1))
+    elif p99 >= 1000:
+        printf("scaling up to %s dynos, p99 response time greater than or equal to 1000ms, p99: %s. Scale Status: %s",
+               current_number_of_dynos+1, p99, scale(current_number_of_dynos+1))
+    elif p99 < 1000 and current_number_of_dynos > 2:
+        printf("scaling down to %s dynos, p99 response time is less than 1000ms, p99: %s. Scale Status: %s",
+               current_number_of_dynos-1, p99, scale(current_number_of_dynos-1))
+    else:
+        printf("everything looks good. p99: %s and number of dynos: %s",
+               p99, current_number_of_dynos)
+
+
+print("""
+______                   _____           _           
+|  _  \                 /  ___|         | |          
+| | | |_   _ _ __   ___ \ `--.  ___ __ _| | ___ _ __ 
+| | | | | | | '_ \ / _ \ `--. \/ __/ _` | |/ _ \ '__|
+| |/ /| |_| | | | | (_) /\__/ / (_| (_| | |  __/ |   
+|___/  \__, |_| |_|\___/\____/ \___\__,_|_|\___|_|   
+        __/ |                                        
+       |___/                                         
+""")
 sched.start()
