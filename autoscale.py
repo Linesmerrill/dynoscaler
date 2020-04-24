@@ -7,10 +7,11 @@ import socket
 import concurrent.futures
 import urllib.request
 import time
+import yagmail
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-from config import APP, APP_URL, KEY, PROCESS
+from config import APP, APP_URL, KEY, PROCESS, EMAIL_RECIPIENT, EMAIL_FROM, EMAIL_KEY
 
 # Generate Base64 encoded API Key
 message = ":" + KEY
@@ -24,6 +25,8 @@ HEADERS = {
 }
 
 sched = BlockingScheduler()
+
+yag = yagmail.SMTP(EMAIL_FROM, EMAIL_KEY)
 
 
 def printf(format, *values):
@@ -43,19 +46,6 @@ def scale(size):
     else:
         return "Failure"
 
-# 10:00 PHX time is 17:00 UTC
-# @sched.scheduled_job('cron', hour=17)
-# def scale_out_to_two():
-#     print('Scaling out ...')
-#     print(scale(2))
-
-# 00:00 PHX time is 07:00 UTC
-# @sched.scheduled_job('cron', hour=7)
-# def scale_in_to_one():
-#     print('Scaling in ...')
-#     print(scale(1))
-
-
 def get_current_dyno_quantity():
     url = "https://api.heroku.com/apps/" + APP + "/formation"
     try:
@@ -66,10 +56,11 @@ def get_current_dyno_quantity():
     except:
         return None
 
-
 @sched.scheduled_job('interval', minutes=2)
 def get_p99_response():
     print("checking p99 response")
+    subject = ""
+    body = ""
     current_number_of_dynos = get_current_dyno_quantity()
     responseTimes = []  # in ms
     for i in range(100):
@@ -80,16 +71,28 @@ def get_p99_response():
     responseTimes.sort()
     p99 = float(np.round(np.percentile(responseTimes, 99), 2))
     if p99 < 1000 and current_number_of_dynos == 2:
+        subject = "Dynoscaler - Scaling to a single dyno"
+        body = """Scaling to a single dyno
+        p99: {}""".format(p99)
         printf("scaling to a single dyno, p99: %s. Scale Status: %s", p99, scale(1))
     elif p99 >= 1000:
+        subject = """Dynoscaler - Scaling up to {} dynos""".format(current_number_of_dynos+1)
+        body = """Scaling up to {} dynos
+        p99: {}""".format(current_number_of_dynos+1,p99)
         printf("scaling up to %s dynos, p99 response time greater than or equal to 1000ms, p99: %s. Scale Status: %s",
                current_number_of_dynos+1, p99, scale(current_number_of_dynos+1))
     elif p99 < 1000 and current_number_of_dynos > 2:
+        subject = """Dynoscaler - Scaling down to {} dynos""".format(current_number_of_dynos-1)
+        body = """Scaling down to {} dynos
+        p99: {}""".format(current_number_of_dynos-1,p99)
         printf("scaling down to %s dynos, p99 response time is less than 1000ms, p99: %s. Scale Status: %s",
                current_number_of_dynos-1, p99, scale(current_number_of_dynos-1))
     else:
         printf("everything looks good. p99: %s and number of dynos: %s",
                p99, current_number_of_dynos)
+    if subject != "" and body != "":
+        yag.send(EMAIL_RECIPIENT, subject, body)
+    
 
 
 print("""
