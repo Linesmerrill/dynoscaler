@@ -74,10 +74,11 @@ def get_p99_response():
     responseTimes = []  # in ms
     for i in range(100):
         ts = time.time()
-        r = requests.get("""{}?{}{}""".format(APP_URL, ts, i))
+        url = """{}?{}{}""".format(APP_URL, ts, i)
+        r = requests.get(url)
         responseTimes.append(int(r.elapsed.microseconds / 1000))
     responseTimes.sort()
-    p99 = np.percentile(responseTimes, 99)
+    p99 = float(np.round(np.percentile(responseTimes, 99), 2))
     if p99 < 1000 and current_number_of_dynos == 2:
         printf("scaling to a single dyno, p99: %s. Scale Status: %s", p99, scale(1))
     elif p99 >= 1000:
